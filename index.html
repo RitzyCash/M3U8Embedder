@@ -59,8 +59,9 @@
             const video = document.getElementById('video');
             const statusMessage = document.getElementById('status-message');
 
-            // Public CORS Proxy URL - used to bypass browser CORS security restrictions
-            const PROXY_URL = 'https://corsproxy.io/?url=';
+            // Public CORS Proxy URL - SWITCHED to a potentially more reliable proxy service
+            // This is used to bypass browser CORS security restrictions when fetching M3U8/TS files.
+            const PROXY_URL = 'https://api.allorigins.win/raw?url=';
 
             // Function to parse the query parameter
             function getUrlParameter(name) {
@@ -119,7 +120,8 @@
                                 default:
                                     // Cannot recover, destroy HLS instance
                                     hls.destroy();
-                                    statusMessage.textContent = 'Fatal Error: Could not load the stream. Check the M3U8 link or if the proxy is blocked.';
+                                    // Updated error message to be more specific about the proxy
+                                    statusMessage.textContent = 'Fatal Error: Could not load stream. The current proxy might be blocked. Try another one, or check the link.';
                                     statusMessage.classList.replace('bg-blue-900', 'bg-red-700');
                                     break;
                             }
@@ -131,7 +133,8 @@
 
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     // Fallback for native HLS support (e.g., Safari/iOS). 
-                    // Note: Native support relies on video.src which is the original URL.
+                    // Native support requires a direct stream link (no proxy). 
+                    // If the original CORS error was the issue, this won't work either.
                     video.addEventListener('loadedmetadata', function() {
                         video.play().catch(() => {});
                         statusMessage.textContent = 'Native HLS loaded. Player ready.';
