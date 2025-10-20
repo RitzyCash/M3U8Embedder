@@ -59,9 +59,9 @@
             const video = document.getElementById('video');
             const statusMessage = document.getElementById('status-message');
 
-            // Public CORS Proxy URL - SWITCHED to a potentially more reliable proxy service
-            // This is used to bypass browser CORS security restrictions when fetching M3U8/TS files.
-            const PROXY_URL = 'https://api.allorigins.win/raw?url=';
+            // Public CORS Proxy URL - SWITCHED to a proxy designed to better handle HLS segment resolution.
+            // This is crucial for resolving internal M3U8 links (the .ts segments).
+            const PROXY_URL = 'https://bypass-cors.vercel.app/?url='; 
 
             // Function to parse the query parameter
             function getUrlParameter(name) {
@@ -81,10 +81,11 @@
             document.querySelector('meta[property="og:url"]').setAttribute('content', window.location.href);
 
             if (streamUrl) {
-                // Construct the proxied URL and update status
+                // Construct the proxied URL. HLS.js uses this proxied URL as its base, 
+                // allowing the proxy server to handle resolution for internal segment links.
                 const proxiedUrl = PROXY_URL + encodeURIComponent(streamUrl);
                 
-                statusMessage.textContent = 'Loading stream (using CORS proxy to bypass security)...';
+                statusMessage.textContent = 'Loading stream (using specialized CORS proxy for segments)...';
                 statusMessage.classList.replace('bg-gray-800', 'bg-blue-900');
 
                 // Check if HLS.js is supported and needed
@@ -108,33 +109,30 @@
                         if (data.fatal) {
                             switch(data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
-                                    // Try to recover network errors
                                     console.error("Fatal network error detected, trying to recover.");
                                     hls.recoverMediaError();
                                     break;
                                 case Hls.ErrorTypes.MEDIA_ERROR:
-                                    // Try to recover media errors
                                     console.error("Fatal media error detected, trying to recover.");
                                     hls.recoverMediaError();
                                     break;
                                 default:
-                                    // Cannot recover, destroy HLS instance
                                     hls.destroy();
-                                    // Updated error message to be more specific about the proxy
-                                    statusMessage.textContent = 'Fatal Error: Could not load stream. The current proxy might be blocked. Try another one, or check the link.';
+                                    // Updated error message to be more specific about the segment issue
+                                    statusMessage.textContent = 'Fatal Error: Could not load stream segments. The proxy is likely blocked by the stream server.';
                                     statusMessage.classList.replace('bg-blue-900', 'bg-red-700');
                                     break;
                             }
                         }
                     });
 
-                    hls.loadSource(proxiedUrl); // IMPORTANT: Using the proxied URL here
+                    hls.loadSource(proxiedUrl); // Crucially, HLS.js uses this as the base URL
                     hls.attachMedia(video);
 
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     // Fallback for native HLS support (e.g., Safari/iOS). 
-                    // Native support requires a direct stream link (no proxy). 
-                    // If the original CORS error was the issue, this won't work either.
+                    // This will only work if the internal links are not CORS-restricted 
+                    // or if the browser's native HLS implementation is less strict (unlikely).
                     video.addEventListener('loadedmetadata', function() {
                         video.play().catch(() => {});
                         statusMessage.textContent = 'Native HLS loaded. Player ready.';
